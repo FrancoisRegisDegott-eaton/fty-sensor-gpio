@@ -142,6 +142,7 @@ struct gpo_state_t {
     int gpo_number;
     int default_state;
     int last_action;
+    int in_alert;
 };
 
 //  Structure of our class
@@ -272,30 +273,6 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
             my_zsys_debug (self->verbose, "Checking status of GPx sensor '%s'",
                 gpx_info->asset_name);
 
-#if 0
-            // NOTE: this code may be interesting for latter GPO consideration
-            // If it's a GPO, then apply initially normal-state
-            if ( (gpx_info->gpx_direction == GPIO_DIRECTION_OUT)
-                && (gpx_info->current_state == GPIO_STATE_UNKNOWN) ) {
-
-                my_zsys_debug (self->verbose, "Applying initial GPO normal-state.");
-
-                if (libgpio_write ( self->gpio_lib,
-                                    gpx_info->gpx_number,
-                                    gpx_info->normal_state) != 0) {
-                    my_zsys_debug (self->verbose, "Failed to set initial GPO normal-state '%s'!",
-                        libgpio_get_status_string(gpx_info->normal_state).c_str());
-                }
-                else {
-                    my_zsys_debug (self->verbose, "GPO initial normal-state successfully set.");
-                    // Save the current state
-                    gpx_info->current_state = gpx_info->normal_state;
-                    // Sleep for a second to have the GPx sensor powered and running
-                    zclock_sleep (1000);
-                }
-            }
-#endif // #if 0
-
             // If there is a GPO power source, then activate it prior to
             // accessing the GPI!
             if ( gpx_info->power_source && (!streq(gpx_info->power_source, "")) ) {
@@ -316,6 +293,13 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
                 }
             }
 
+            // get the correct GPO status if applicable
+            gpo_state_t *state = (gpo_state_t *) zhashx_lookup (self->gpo_states, (void *) gpx_info->asset_name);
+            if ((state && (gpx_info->current_state == GPIO_STATE_UNKNOWN))) {
+                gpx_info->current_state = state->last_action;
+                zsys_debug ("changed GPO state from GPIO_STATE_UNKNOWN to %s", libgpio_get_status_string (gpx_info->current_state).c_str ());
+            }
+
             // Get the current sensor status, only for GPIs, or when no status
             // have been set to GPOs. Otherwise, that reinit GPOs!
             if ( (gpx_info->gpx_direction != GPIO_DIRECTION_OUT)
@@ -323,6 +307,8 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
                 gpx_info->current_state = libgpio_read( self->gpio_lib,
                                                         gpx_info->gpx_number,
                                                         gpx_info->gpx_direction);
+                if (state)
+                    state->last_action = gpx_info->current_state;
             }
             if (gpx_info->current_state == GPIO_STATE_UNKNOWN) {
                 zsys_error ("Can't read GPx sensor #%i status", gpx_info->gpx_number);
@@ -440,6 +426,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                                 else {
                                     zsys_debug ("last action = %d on port ", last_state->last_action, last_state->gpo_number);
                                     last_state->last_action = status_value;
+                                    last_state->in_alert = 1;
                                 }
                             }
                         }
@@ -678,6 +665,20 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
 
             gpo_state_t *state = (gpo_state_t *) zhashx_lookup (self->gpo_states, (void *) assetname);
             if (state != NULL) {
+                int num_default_state = libgpio_get_status_value (default_state);
+                //did the default state changed?
+                if (state->default_state != num_default_state) {
+                    state->default_state = num_default_state;
+                    if (!state->in_alert) {
+                        int rv = libgpio_write (self->gpio_lib, state->gpo_number, num_default_state);
+                        if (rv) {
+                            zsys_error ("Error during default action %s on GPO #%d",
+                                        default_state,
+                                        state->gpo_number);
+                        }
+                        state->last_action = num_default_state;
+                    }
+                }
                 // did the port change?
                 if (state->gpo_number != num_gpo_number) {
                     // turn off the previous port
@@ -696,6 +697,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
 
                     state->gpo_number = num_gpo_number;
                     state->last_action = num_default_state;
+                    state->in_alert = 0;
                 }
             }
             else {
@@ -712,6 +714,8 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                 }
                 else
                     state->last_action = libgpio_get_status_value (default_state);
+                state->in_alert = 0;
+
                 zhashx_update (self->gpo_states, (void *) assetname, (void *) state);
             }
 
@@ -812,12 +816,13 @@ s_load_state_file (fty_sensor_gpio_server_t *self, const char *state_file)
                 int rv = libgpio_write (self->gpio_lib, state->gpo_number, state->default_state);
                 if (rv) {
                     zsys_error ("Error during default action %s on GPO #%d",
-                                default_state,
+                                libgpio_get_status_string (default_state).c_str (),
                                 state->gpo_number);
                     state->last_action = GPIO_STATE_UNKNOWN;
                 }
                 else
                     state->last_action = default_state;
+                state->in_alert = 0;
 
                 char *asset_name_key = strdup (asset_name);
                 zhashx_update (self->gpo_states, (void *) asset_name_key, (void *) state);
@@ -971,7 +976,7 @@ fty_sensor_gpio_server (zsock_t *pipe, void *args)
                     int port_num = (int) strtol (port_str.c_str (), NULL, 10);
                     int pin_num = (int) strtol (value, NULL, 10);
                     my_zsys_debug (self->verbose, "port_num = %d->pin_num = %d", port_num, pin_num);
-                    libgpio_add_gpio_mapping (self->gpio_lib, port_num, pin_num);
+                    libgpio_add_gpi_mapping (self->gpio_lib, port_num, pin_num);
                     zstr_free (&value);
                 }
                 else if (streq (cmd, "GPO_MAPPING")) {
@@ -983,7 +988,7 @@ fty_sensor_gpio_server (zsock_t *pipe, void *args)
                     int port_num = (int) strtol (port_str.c_str (), NULL, 10);
                     int pin_num = (int) strtol (value, NULL, 10);
                     my_zsys_debug (self->verbose, "port_num = %d->pin_num = %d", port_num, pin_num);
-                    libgpio_add_gpio_mapping (self->gpio_lib, port_num, pin_num);
+                    libgpio_add_gpo_mapping (self->gpio_lib, port_num, pin_num);
                     zstr_free (&value);
                 }
                 else if (streq (cmd, "STATEFILE")) {
@@ -1089,7 +1094,7 @@ fty_sensor_gpio_server_test (bool verbose)
     assert (rv == 0);
 
     rv = add_sensor(assets_self, "create",
-        "Eaton", "sensorgpio-11", "GPIO-Test-GPO1",
+        "Eaton", "gpo-11", "GPIO-Test-GPO1",
         "DCS001", "dummy",
         "closed", "2",
         "GPO", "IPC1", "Room1", "",
@@ -1165,7 +1170,7 @@ fty_sensor_gpio_server_test (bool verbose)
         assert (streq (fty_proto_type (frecv), "status.GPO2"));
         assert (streq (fty_proto_aux_string (frecv, "port", NULL), "GPO2"));
         assert (streq (fty_proto_value (frecv), "closed"));
-        assert (streq (fty_proto_aux_string (frecv, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, NULL), "sensorgpio-11"));
+        assert (streq (fty_proto_aux_string (frecv, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, NULL), "gpo-11"));
         fty_proto_destroy (&frecv);
         zmsg_destroy (&recv);
 
@@ -1288,7 +1293,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zmsg_t *msg = zmsg_new ();
         zuuid_t *zuuid = zuuid_new ();
         zmsg_addstr (msg, zuuid_str_canonical (zuuid));
-        zmsg_addstr (msg, "sensorgpio-11");     // sensor
+        zmsg_addstr (msg, "gpo-11");     // sensor
         zmsg_addstr (msg, "open");          // action
         int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPO_INTERACTION", NULL, 5000, &msg);
         assert ( rv == 0 );

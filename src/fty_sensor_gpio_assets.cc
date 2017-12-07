@@ -334,6 +334,7 @@ is_asset_gpio_sensor (fty_sensor_gpio_assets_t *self, string asset_subtype, stri
 
     // Check if a sensor template exists
     template_filename = string(self->template_dir) + string(asset_model) + string(".tpl");
+
     FILE *template_file = fopen(template_filename.c_str(), "r");
     if (!template_file) {
         my_zsys_debug (self->verbose, "Template config file %s doesn't exist!", template_filename.c_str());
@@ -369,76 +370,110 @@ fty_sensor_gpio_handle_asset (fty_sensor_gpio_assets_t *self, fty_proto_t *ftyme
     if ( (streq (operation, "inventory"))
         ||  (streq (operation, "create"))
         ||  (streq (operation, "update")) ) {
+        const char* asset_subtype = fty_proto_aux_string (ftymessage, "subtype", "");
+        zsys_debug ("asset_subtype = %s", asset_subtype);
 
-        const char* asset_subtype = fty_proto_ext_string (ftymessage, "subtype", "");
-        const char* asset_model = fty_proto_ext_string (ftymessage, "model", "");
-        string config_template_filename = is_asset_gpio_sensor(self, asset_subtype, asset_model);
-        if (config_template_filename == "") {
-            return;
-        }
-        const char *asset_parent_name1 = fty_proto_aux_string (ftymessage, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "");
-        if (0 != strncmp ("rackcontroller", asset_parent_name1, strlen ("rackcontroller"))) {
-            // This agent should handle only local sensors
-            return;
-        }
-        // We have a GPIO sensor, process it
-        config_template = zconfig_load (config_template_filename.c_str());
-        if (!config_template) {
-            my_zsys_debug (self->verbose, "Can't load sensor template file"); // FIXME: error
-            return;
-        }
-        // Get static info from template
-        const char *manufacturer = s_get (config_template, "manufacturer", "");
-        const char *sensor_type = s_get (config_template, "type", "");
-        // FIXME: can come from user config
-        const char *sensor_alarm_message = s_get (config_template, "alarm-message", "");
-        // Get from user config
-        const char *sensor_gpx_number = fty_proto_ext_string (ftymessage, "port", "");
-        const char* extname = fty_proto_ext_string (ftymessage, "name", "");
-        // Get normal state, direction and severity from user config, or fallback to template values
-        const char *sensor_normal_state = s_get (config_template, "normal-state", "");
-        sensor_normal_state = fty_proto_ext_string (ftymessage, "normal_state", sensor_normal_state);
-        const char *sensor_gpx_direction = s_get (config_template, "gpx-direction", "GPI");
-        sensor_gpx_direction = fty_proto_ext_string (ftymessage, "gpx_direction", sensor_gpx_direction);
-        // Get the parent IPC name
-        const char *sensor_parent = fty_proto_aux_string (ftymessage, "parent_name.1", "");
-        // And deployment location
-        const char *sensor_location = fty_proto_ext_string (ftymessage, "logical_asset", "");
-        const char *sensor_alarm_severity = s_get (config_template, "alarm-severity", "WARNING");
-        sensor_alarm_severity = fty_proto_ext_string (ftymessage, "alarm_severity", sensor_alarm_severity);
-        // Get the GPO which power us
-        const char* power_source = fty_proto_ext_string (ftymessage, "gpo_powersource", "");
-        // FIXME: need a power topology request, for latter expansion
-        request_sensor_power_source(self, assetname);
+        if (streq (asset_subtype, "sensorgpio")) {
+            const char* asset_model = fty_proto_ext_string (ftymessage, "model", "");
 
-        // Sanity checks
-        if (streq (sensor_normal_state, "")) {
-            my_zsys_debug (self->verbose, "No sensor normal state found in template nor provided by the user!");
-            my_zsys_debug (self->verbose, "Skipping sensor");
+            string config_template_filename = is_asset_gpio_sensor(self, asset_subtype, asset_model);
+            if (config_template_filename == "") {
+                return;
+            }
+
+            const char *asset_parent_name1 = fty_proto_aux_string (ftymessage, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "");
+            if (0 != strncmp ("rackcontroller", asset_parent_name1, strlen ("rackcontroller"))) {
+                // This agent should handle only local sensors
+                return;
+            }
+
+            // We have a GPI sensor, process it
+            config_template = zconfig_load (config_template_filename.c_str());
+            if (!config_template) {
+                my_zsys_debug (self->verbose, "Can't load sensor template file"); // FIXME: error
+                return;
+            }
+
+            // Get static info from template
+            const char *manufacturer = s_get (config_template, "manufacturer", "");
+            const char *sensor_type = s_get (config_template, "type", "");
+            // FIXME: can come from user config
+            const char *sensor_alarm_message = s_get (config_template, "alarm-message", "");
+            // Get from user config
+            const char *sensor_gpx_number = fty_proto_ext_string (ftymessage, "port", "");
+            const char* extname = fty_proto_ext_string (ftymessage, "name", "");
+            // Get normal state, direction and severity from user config, or fallback to template values
+            const char *sensor_normal_state = s_get (config_template, "normal-state", "");
+            sensor_normal_state = fty_proto_ext_string (ftymessage, "normal_state", sensor_normal_state);
+            const char *sensor_gpx_direction = s_get (config_template, "gpx-direction", "GPI");
+            sensor_gpx_direction = fty_proto_ext_string (ftymessage, "gpx_direction", sensor_gpx_direction);
+            // And deployment location
+            const char *sensor_location = fty_proto_ext_string (ftymessage, "logical_asset", "");
+            const char *sensor_alarm_severity = s_get (config_template, "alarm-severity", "WARNING");
+            sensor_alarm_severity = fty_proto_ext_string (ftymessage, "alarm_severity", sensor_alarm_severity);
+            // Get the GPO which power us
+            const char* power_source = fty_proto_ext_string (ftymessage, "gpo_powersource", "");
+            // FIXME: need a power topology request, for latter expansion
+            request_sensor_power_source(self, assetname);
+
+            // Sanity checks
+            if (streq (sensor_normal_state, "")) {
+                my_zsys_debug (self->verbose, "No sensor normal state found in template nor provided by the user!");
+                my_zsys_debug (self->verbose, "Skipping sensor");
+                zconfig_destroy (&config_template);
+                return;
+            }
+            if (streq (sensor_gpx_number, "")) {
+                my_zsys_debug (self->verbose, "No sensor pin (port) provided! Skipping sensor");
+                zconfig_destroy (&config_template);
+                return;
+            }
+
+            add_sensor( self, operation,
+                        manufacturer, assetname, extname, asset_model,
+                        sensor_type, sensor_normal_state,
+                        sensor_gpx_number, sensor_gpx_direction, asset_parent_name1,
+                        sensor_location, power_source, sensor_alarm_message, sensor_alarm_severity);
+
             zconfig_destroy (&config_template);
-            return;
         }
-        if (streq (sensor_gpx_number, "")) {
-            my_zsys_debug (self->verbose, "No sensor pin (port) provided! Skipping sensor");
-            zconfig_destroy (&config_template);
-            return;
-        }
+        if (streq (asset_subtype, "gpo")) {
+            const char *asset_parent_name1 = fty_proto_aux_string (ftymessage, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "");
+            if (0 != strncmp ("rackcontroller", asset_parent_name1, strlen ("rackcontroller"))) {
+                // This agent should handle only local sensors
+                return;
+            }
+            const char *sensor_gpx_number = fty_proto_ext_string (ftymessage, "port", "");
+            const char* extname = fty_proto_ext_string (ftymessage, "name", "");
+            const char *sensor_normal_state = fty_proto_ext_string (ftymessage, "normal_state", "closed");
+            const char *sensor_gpx_direction = fty_proto_ext_string (ftymessage, "gpx_direction", "GPO");
 
-        if (streq (sensor_gpx_direction, "GPO")) {
+            // Sanity checks
+            if (streq (sensor_normal_state, "")) {
+                my_zsys_debug (self->verbose, "No sensor normal state found in template nor provided by the user!");
+                my_zsys_debug (self->verbose, "Skipping sensor");
+                zconfig_destroy (&config_template);
+                return;
+            }
+            if (streq (sensor_gpx_number, "")) {
+                my_zsys_debug (self->verbose, "No sensor pin (port) provided! Skipping sensor");
+                zconfig_destroy (&config_template);
+                return;
+            }
+
             zmsg_t *request = zmsg_new ();
             zmsg_addstr (request, assetname);
             zmsg_addstr (request, sensor_gpx_number);
             zmsg_addstr (request, sensor_normal_state);
             mlm_client_sendto (self->mlm, FTY_SENSOR_GPIO_AGENT, "GPOSTATE", NULL, 1000, &request);
+
+            add_sensor( self, operation,
+                        "", assetname, extname, "",
+                        "", sensor_normal_state,
+                        sensor_gpx_number, sensor_gpx_direction, asset_parent_name1,
+                        "", "", "", "");
+
         }
-
-        add_sensor( self, operation,
-                    manufacturer, assetname, extname, asset_model,
-                    sensor_type, sensor_normal_state,
-                    sensor_gpx_number, sensor_gpx_direction, sensor_parent,
-                    sensor_location, power_source, sensor_alarm_message, sensor_alarm_severity);
-
-        zconfig_destroy (&config_template);
     }
     // Asset deletion
     if (streq (operation, "delete")) {
@@ -476,8 +511,8 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
     zuuid_t *uuid = zuuid_new ();
     zmsg_addstr (msg, "GET");
     zmsg_addstr (msg, zuuid_str_canonical (uuid));
-    zmsg_addstr (msg, "sensorgpio");
     zmsg_addstr (msg, "gpo");
+    zmsg_addstr (msg, "sensorgpio");
 
     int rv = mlm_client_sendto (self->mlm, "asset-agent", "ASSETS", NULL, 5000, &msg);
     if (rv != 0)
@@ -493,7 +528,7 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
     char *uuid_recv = zmsg_popstr(reply);
 
     if (0 != strcmp (zuuid_str_canonical (uuid), uuid_recv)) {
-        my_zsys_debug (self->verbose, "%s:\tGPIO zuuid doesn't match", self->name);
+        my_zsys_debug (self->verbose, "%s:\tGPIO zuuid doesn't match 1", self->name);
         zmsg_destroy (&reply);
         zstr_free (&uuid_recv);
     }
@@ -504,24 +539,59 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
         zsys_error ("%s: error message received %s", self->name, reason);
     }
 
-    char *asset = zmsg_popstr(reply);
-    uuid = zuuid_new ();
-    msg = zmsg_new ();
-    zmsg_addstr (msg, "GET");
-    zmsg_addstr (msg, zuuid_str_canonical (uuid));
+    char *asset = NULL;
+    asset = zmsg_popstr(reply);
 
-    while (asset) {
+    while (asset)
+    {
+        uuid = zuuid_new ();
+        msg = zmsg_new ();
+        zmsg_addstr (msg, "GET");
+        zmsg_addstr (msg, zuuid_str_canonical (uuid));
         zmsg_addstr (msg, asset);
-        asset = zmsg_popstr (reply);
-    }
 
-    rv = mlm_client_sendto (self->mlm, "asset-agent", "REPUBLISH", NULL, 5000, &msg);
-    if (rv != 0)
-        zsys_error ("%s:\tRequest REPUBLISH failed for %s", self->name, asset);
+        rv = mlm_client_sendto (self->mlm, "asset-agent", "ASSET_DETAIL", NULL, 5000, &msg);
+        if (rv != 0)
+            zsys_error ("%s:\tRequest ASSET_DETAIL failed for %s", self->name, asset);
+
+        zsys_debug ("sending reply 2");
+        zmsg_t *reply2 = mlm_client_recv (self->mlm);
+
+        if (reply2)
+        {
+            char *uuid_recv = zmsg_popstr (reply2);
+
+            if (0 != strcmp (zuuid_str_canonical (uuid), uuid_recv)) {
+                my_zsys_debug (self->verbose, "%s:\tGPIO zuuid doesn't match 2", self->name);
+                zmsg_destroy (&reply2);
+                continue;
+            }
+
+            if (fty_proto_is (reply2))
+            {
+                fty_proto_t *fmessage = fty_proto_decode (&reply2);
+                if (fty_proto_id (fmessage) == FTY_PROTO_ASSET)
+                {
+                    my_zsys_debug (self->verbose, "%s: Processing sensor %s", self->name, asset);
+                    fty_proto_print (fmessage);
+                    fty_sensor_gpio_handle_asset (self, fmessage);
+                }
+                fty_proto_destroy (&fmessage);
+            }
+            else
+            {
+                if (streq (zmsg_popstr (reply2), "ERROR"))
+                    zsys_debug ("%s: error recieved %s", self->name, zmsg_popstr (reply2));
+            }
+            asset = zmsg_popstr (reply);
+            zmsg_destroy (&reply2);
+        }
+        zmsg_destroy (&msg);
+
+    } // while
     zmsg_destroy (&reply);
-    zmsg_destroy (&msg);
-}
 
+}
 //  --------------------------------------------------------------------------
 //  Create a new fty_sensor_gpio_assets
 
@@ -661,7 +731,9 @@ fty_sensor_gpio_assets (zsock_t *pipe, void *args)
             if (is_fty_proto (message)) {
                 fty_proto_t *fmessage = fty_proto_decode (&message);
                 if (fty_proto_id (fmessage) == FTY_PROTO_ASSET) {
-                    fty_sensor_gpio_handle_asset (self, fmessage);
+                    if (fty_proto_aux_string (fmessage, FTY_PROTO_ASSET_AUX_SUBTYPE, "sensorgpio") ||
+                        fty_proto_aux_string (fmessage, FTY_PROTO_ASSET_AUX_SUBTYPE, "gpo"))
+                        fty_sensor_gpio_handle_asset (self, fmessage);
                 }
                 fty_proto_destroy (&fmessage);
             }
@@ -718,12 +790,13 @@ fty_sensor_gpio_assets_test (bool verbose)
         zstr_send (server, "VERBOSE");
 
     zactor_t *assets = zactor_new (fty_sensor_gpio_assets, (void*)"gpio-assets");
+    zstr_sendx (assets, "TEMPLATE_DIR", test_data_dir, NULL);
+
     if (verbose)
         zstr_send (assets, "VERBOSE");
     zstr_sendx (assets, "CONNECT", endpoint, NULL);
     zstr_sendx (assets, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
     // Use source-provided templates
-    zstr_sendx (assets, "TEMPLATE_DIR", test_data_dir, NULL);
     zclock_sleep (1000);
 
     mlm_client_t *asset_generator = mlm_client_new ();
@@ -783,12 +856,34 @@ fty_sensor_gpio_assets_test (bool verbose)
         zclock_sleep (1000);
         zmsg_destroy (&msg);
 
+        // Asset 3: GPO-Beacon
+        aux = zhash_new ();
+        ext = zhash_new ();
+        zhash_update (aux, "type", (void *) "device");
+        zhash_update (aux, "subtype", (void *) "gpo");
+        zhash_update (aux, "parent_name.1", (void *) "rackcontroller-1");
+        zhash_update (ext, "name", (void *) "GPO-Beacon");
+        zhash_update (ext, "port", (void *) "2");
+
+        msg = fty_proto_encode_asset (
+                aux,
+                "gpo-12",
+                FTY_PROTO_ASSET_OP_CREATE,
+                ext);
+
+        rv = mlm_client_send (asset_generator, "device.gpo@gpo-12", &msg);
+        assert (rv == 0);
+        zhash_destroy (&aux);
+        zhash_destroy (&ext);
+        zclock_sleep (1000);
+        zmsg_destroy (&msg);
+
         // Check the result list
         pthread_mutex_lock (&gpx_list_mutex);
         zlistx_t *test_gpx_list = get_gpx_list(verbose);
         assert (test_gpx_list);
         int sensors_count = zlistx_size (test_gpx_list);
-        assert (sensors_count == 2);
+        assert (sensors_count == 3);
         // Test the first sensor
         _gpx_info_t *gpx_info = (_gpx_info_t *)zlistx_first (test_gpx_list);
         assert (gpx_info);
@@ -821,13 +916,56 @@ fty_sensor_gpio_assets_test (bool verbose)
         assert (gpx_info->normal_state == GPIO_STATE_OPENED);
         assert (gpx_info->gpx_direction == GPIO_DIRECTION_IN);
 
+        // Test the GPO
+        gpx_info = (_gpx_info_t *)zlistx_next (test_gpx_list);
+        assert (gpx_info);
+        assert (streq (gpx_info->asset_name, "gpo-12"));
+        assert (streq (gpx_info->ext_name, "GPO-Beacon"));
+        assert (gpx_info->gpx_number == 2);
+        assert (streq (gpx_info->parent, "rackcontroller-1"));
+        assert (gpx_info->normal_state == GPIO_STATE_CLOSED);
+        assert (gpx_info->gpx_direction == GPIO_DIRECTION_OUT);
+
         pthread_mutex_unlock (&gpx_list_mutex);
     }
 
-    // Test #2: Using the list of assets from #1, update asset 1 with overriden
-    // 'normal-state' and check the list
+    // Test #2: Using the list of assets from #1, delete asset 3 and check the list
     {
         my_zsys_debug (verbose, "fty-sensor-gpio-assets-test: Test #2");
+        // Asset 1: DCS001
+        zhash_t* aux = zhash_new ();
+        zhash_t *ext = zhash_new ();
+        zhash_autofree (aux);
+        zhash_autofree (ext);
+        zhash_update (aux, "type", (void *) "device");
+        zhash_update (aux, "subtype", (void *) "gpo");
+
+        zmsg_t *msg = fty_proto_encode_asset (
+                aux,
+                "gpo-12",
+                FTY_PROTO_ASSET_OP_DELETE,
+                ext);
+
+        int rv = mlm_client_send (asset_generator, "device.gpo@gpo-12", &msg);
+        assert (rv == 0);
+        zhash_destroy (&aux);
+        zhash_destroy (&ext);
+        zclock_sleep (1000);
+        zmsg_destroy (&msg);
+
+        // Check the result list
+        pthread_mutex_lock (&gpx_list_mutex);
+        zlistx_t *test_gpx_list = get_gpx_list(verbose);
+        assert (test_gpx_list);
+        int sensors_count = zlistx_size (test_gpx_list);
+        assert (sensors_count == 2);
+
+        pthread_mutex_unlock (&gpx_list_mutex);
+    }
+    // Test #3: Using the list of assets from #1, update asset 1 with overriden
+    // 'normal-state' and check the list
+    {
+        my_zsys_debug (verbose, "fty-sensor-gpio-assets-test: Test #3");
         // Asset 1: DCS001
         zhash_t* aux = zhash_new ();
         zhash_t *ext = zhash_new ();
@@ -884,9 +1022,9 @@ fty_sensor_gpio_assets_test (bool verbose)
         pthread_mutex_unlock (&gpx_list_mutex);
     }
 
-    // Test #3: Using the list of assets from #1, delete asset 1 and check the list
+    // Test #4: Using the list of assets from #1, delete asset 1 and check the list
     {
-        my_zsys_debug (verbose, "fty-sensor-gpio-assets-test: Test #3");
+        my_zsys_debug (verbose, "fty-sensor-gpio-assets-test: Test #4");
         // Asset 1: DCS001
         zhash_t* aux = zhash_new ();
         zhash_t *ext = zhash_new ();
