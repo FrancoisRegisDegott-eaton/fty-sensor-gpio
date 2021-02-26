@@ -1521,6 +1521,8 @@ fty_sensor_gpio_server_test (bool verbose)
     assert (dir);
     zdir_remove (dir, true);
     zdir_destroy (&dir);
+    zmsg_destroy (&hw_cap_test_reply_gpi);
+    zmsg_destroy (&hw_cap_test_reply_gpo);
 
     // Cleanup assets
     fty_sensor_gpio_assets_destroy(&assets_self);
