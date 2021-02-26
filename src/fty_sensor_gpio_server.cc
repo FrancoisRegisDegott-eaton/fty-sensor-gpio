@@ -601,24 +601,26 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                 zconfig_t *root = zconfig_new ("root", NULL);
                 string template_filename = string(self->template_dir) + string(sensor_partnumber) + string(".tpl");
 
-                // We have a GPIO sensor, process it
-                /*zconfig_t *sensor_template_file = zconfig_load (template_filename.c_str());
-                if (!sensor_template_file) {
-                    log_debug ("Can't create sensor template file"); // FIXME: error
-                    zmsg_addstr (reply, "ERROR");
-                    zmsg_addstr (reply, "?"); // FIXME: check errno for exact
-                }*/
-
+                // We have a GPIO sensor template, process it
                 char *manufacturer = zmsg_popstr (message);
                 char *type = zmsg_popstr (message);
                 char *normal_state = zmsg_popstr (message);
                 char *gpx_direction = zmsg_popstr (message);
                 char *gpx_power_source = zmsg_popstr (message);
                 char *alarm_severity = zmsg_popstr (message);
-                char *alarm_message = zmsg_popstr (message);
+                std::string alarm_message;
+                char *alarm_message_part;
+                // Process the rest of the message as the alarm message
+                while (zmsg_size (message)) {
+                    alarm_message_part = zmsg_popstr (message);
+                    if (!alarm_message.empty())
+                        alarm_message += " ";
+                    alarm_message += alarm_message_part;
+                    zstr_free(&alarm_message_part);
+                }
 
                 // Sanity check
-                if ( !type || !alarm_message) {
+                if ( !type || alarm_message.empty()) {
                     zmsg_addstr (reply, "ERROR");
                     zmsg_addstr (reply, "MISSING_PARAM");
                 }
@@ -642,7 +644,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                     zconfig_put (root, "gpx-direction", gpx_direction);
                     zconfig_put (root, "power-source", gpx_power_source);
                     zconfig_put (root, "alarm-severity", alarm_severity);
-                    zconfig_put (root, "alarm-message", alarm_message);
+                    zconfig_put (root, "alarm-message", alarm_message.c_str());
 
                     // Save the template
                     int rv = zconfig_save (root, template_filename.c_str());
@@ -662,7 +664,6 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                     zstr_free(&gpx_direction);
                     zstr_free(&gpx_power_source);
                     zstr_free(&alarm_severity);
-                    zstr_free(&alarm_message);
             }
             else {
                 zmsg_addstr (reply, "ERROR");
@@ -1520,6 +1521,8 @@ fty_sensor_gpio_server_test (bool verbose)
     assert (dir);
     zdir_remove (dir, true);
     zdir_destroy (&dir);
+    zmsg_destroy (&hw_cap_test_reply_gpi);
+    zmsg_destroy (&hw_cap_test_reply_gpo);
 
     // Cleanup assets
     fty_sensor_gpio_assets_destroy(&assets_self);
