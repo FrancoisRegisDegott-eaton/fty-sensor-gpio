@@ -31,6 +31,14 @@ src/fty_sensor_gpio_selftest
 *.app
 core
 
+# Generated Debian files
+packaging/debian/.debhelper/
+packaging/debian/debhelper-build-stamp
+packaging/debian/files
+packaging/debian/*.substvars
+packaging/debian/*.debhelper
+packaging/debian/fty-sensor-gpio/
+
 # Distcheck workspace and archives
 fty-sensor-gpio-*/
 fty-sensor-gpio-*.tar.gz
@@ -134,3 +142,4 @@ nbproject/
 # CMake in general
 builds/cmake/
 *.cmake
+obj-x86_64-linux-gnu/

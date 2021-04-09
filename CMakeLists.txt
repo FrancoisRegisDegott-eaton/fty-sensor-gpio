@@ -30,14 +30,14 @@ etn_target(exe ${PROJECT_NAME}
 etn_configure_file(
     resources/${PROJECT_NAME}.cfg.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/${PROJECT_NAME}
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}
 )
 
 # systemd unit
 etn_configure_file(
     resources/${PROJECT_NAME}.service.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION /lib/systemd/system/
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system/
 )
 
 # systemd tmpfiles
@@ -60,14 +60,14 @@ etn_configure_file(
 )
 
 # GPI templates for known devices
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/DCS001.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/M12.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/VIB001.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/WLD012.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/XCELW.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/GPOGEN.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/MZXE-prealarm.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
-install(FILES ${PROJECT_SOURCE_DIR}/src/selftest-ro/data/MZXE-alarm.tpl DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/tntnet/bios.d/)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/DCS001.tpl DESTINATION ${DATAROOTDIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/M12.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/VIB001.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/WLD012.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/XCELW.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/GPOGEN.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-prealarm.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-alarm.tpl DESTINATION ${DATADIR}/data)
 
 if (BUILD_TESTING)
 
