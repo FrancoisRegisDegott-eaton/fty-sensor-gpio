@@ -26,25 +26,37 @@
 extern "C" {
 #endif
 
+//  Structure of our class
+
+struct _fty_sensor_gpio_assets_t {
+    char               *name;         // actor name
+    mlm_client_t       *mlm;          // malamute client
+    zlistx_t           *gpx_list;     // List of monitored GPx _gpx_info_t (10xGPI / 5xGPO on IPC3000)
+    char               *template_dir; // Location of the template files
+    bool               test_mode;     // true if we are in test mode, false otherwise
+};
+
+typedef struct _fty_sensor_gpio_assets_t fty_sensor_gpio_assets_t;
+
 //  @interface
 //  fty_sensor_gpio_assets actor
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_assets (zsock_t *pipe, void *args);
 
 //  Create a new fty_sensor_gpio_assets
-FTY_SENSOR_GPIO_EXPORT fty_sensor_gpio_assets_t *
+fty_sensor_gpio_assets_t *
     fty_sensor_gpio_assets_new (const char* name);
 
 //  Destroy the fty_sensor_gpio_assets
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_assets_destroy (fty_sensor_gpio_assets_t **self_p);
 
 //  Self test of this class
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_assets_test (bool verbose);
 
 //  List accessor
-FTY_SENSOR_GPIO_EXPORT int
+int
     add_sensor(fty_sensor_gpio_assets_t *self, const char* operation,
     const char* manufacturer, const char* assetname, const char* extname,
     const char* asset_subtype, const char* sensor_type,
@@ -53,7 +65,7 @@ FTY_SENSOR_GPIO_EXPORT int
     const char* sensor_location, const char* sensor_power_source,
     const char* sensor_alarm_message, const char* sensor_alarm_severity);
 
-FTY_SENSOR_GPIO_EXPORT void
+void
     request_sensor_power_source(fty_sensor_gpio_assets_t *self, const char* asset_name);
 
 //  @end

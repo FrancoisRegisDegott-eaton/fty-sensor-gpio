@@ -33,16 +33,6 @@ zlistx_t *_gpx_list = NULL;
 // GPx list protection mutex
 pthread_mutex_t gpx_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//  Structure of our class
-
-struct _fty_sensor_gpio_assets_t {
-    char               *name;         // actor name
-    mlm_client_t       *mlm;          // malamute client
-    zlistx_t           *gpx_list;     // List of monitored GPx _gpx_info_t (10xGPI / 5xGPO on IPC3000)
-    char               *template_dir; // Location of the template files
-    bool               test_mode;     // true if we are in test mode, false otherwise
-};
-
 
 //  --------------------------------------------------------------------------
 //  Return the list of monitored sensors without transfering ownership
@@ -782,14 +772,14 @@ fty_sensor_gpio_assets_test (bool verbose)
     //  @selftest
 
     // Note: If your selftest reads SCMed fixture data, please keep it in
-    // src/selftest-ro; if your test creates filesystem objects, please
-    // do so under src/selftest-rw. They are defined below along with a
+    // selftest-ro; if your test creates filesystem objects, please
+    // do so under selftest-rw. They are defined below along with a
     // usecase for the variables (assert) to make compilers happy.
-    //const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    // Note: here, we use the templates from src/data to check if assets
+    //const char *SELFTEST_DIR_RO = "selftest-ro";
+    // Note: here, we use the templates from data to check if assets
     // are GPIOs
-    const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    const char *SELFTEST_DIR_RW = "src/selftest-rw";
+    const char *SELFTEST_DIR_RO = "selftest-ro";
+    const char *SELFTEST_DIR_RW = "selftest-rw";
     assert (SELFTEST_DIR_RO);
     assert (SELFTEST_DIR_RW);
     // Uncomment these to use C++ strings in C++ selftest code:

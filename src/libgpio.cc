@@ -28,18 +28,6 @@
 
 #include "fty_sensor_gpio_classes.h"
 
-//  Structure of our class
-
-struct _libgpio_t {
-    int  gpio_base_address;  // Base address of the GPIOs chipset
-    bool test_mode;          // true if we are in test mode, false otherwise
-    int  gpo_offset;         // offset to access GPO pins
-    int  gpi_offset;         // offset to access GPI pins
-    int  gpo_count;          // number of supported GPO
-    int  gpi_count;          // number of supported GPI
-    zhashx_t *gpi_mapping;   // mapping for GPIs
-    zhashx_t *gpo_mapping;   // mapping for GPOs
-};
 // FIXME: libgpio should be shared with -server and -asset too
 int  _gpo_count = 0;
 int  _gpi_count = 0;
@@ -53,8 +41,8 @@ static int mkpath(char* file_path, mode_t mode);
 // FIXME: use zsys_dir_create (...);
 
 //  Test mode variables
-const char *SELFTEST_DIR_RO = "src/selftest-ro";
-const char *SELFTEST_DIR_RW = "src/selftest-rw";
+const char *SELFTEST_DIR_RO = "selftest-ro";
+const char *SELFTEST_DIR_RW = "selftest-rw";
 
 void *dup_int_ptr (const void *ptr)
 {
@@ -482,11 +470,11 @@ libgpio_test (bool verbose)
     libgpio_set_gpo_count (self, 5);
 
     // Note: If your selftest reads SCMed fixture data, please keep it in
-    // src/selftest-ro; if your test creates filesystem objects, please
-    // do so under src/selftest-rw. They are defined below along with a
+    // selftest-ro; if your test creates filesystem objects, please
+    // do so under selftest-rw. They are defined below along with a
     // usecase for the variables (assert) to make compilers happy.
-    const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    const char *SELFTEST_DIR_RW = "src/selftest-rw";
+    const char *SELFTEST_DIR_RO = "selftest-ro";
+    const char *SELFTEST_DIR_RW = "selftest-rw";
     assert (SELFTEST_DIR_RO);
     assert (SELFTEST_DIR_RW);
     // Uncomment these to use C++ strings in C++ selftest code:

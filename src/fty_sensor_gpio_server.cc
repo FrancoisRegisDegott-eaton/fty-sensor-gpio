@@ -155,6 +155,7 @@ struct _fty_sensor_gpio_server_t {
     char               *template_dir; // Location of the template files
     zhashx_t           *gpo_states;
 };
+typedef struct _fty_sensor_gpio_server_t fty_sensor_gpio_server_t;
 
 // Flag to share if HW capabilities were successfully received
 bool hw_cap_inited = false;
@@ -1147,11 +1148,11 @@ fty_sensor_gpio_server_test (bool verbose)
     //return;
 
     // Note: If your selftest reads SCMed fixture data, please keep it in
-    // src/selftest-ro; if your test creates filesystem objects, please
-    // do so under src/selftest-rw. They are defined below along with a
+    // selftest-ro; if your test creates filesystem objects, please
+    // do so under selftest-rw. They are defined below along with a
     // usecase for the variables (assert) to make compilers happy.
-    const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    const char *SELFTEST_DIR_RW = "src/selftest-rw";
+    const char *SELFTEST_DIR_RO = "selftest-ro";
+    const char *SELFTEST_DIR_RW = "selftest-rw";
     assert (SELFTEST_DIR_RO);
     assert (SELFTEST_DIR_RW);
     // Uncomment these to use C++ strings in C++ selftest code:
