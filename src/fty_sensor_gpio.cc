@@ -57,7 +57,9 @@ usage(){
 static int
 s_update_event (zloop_t *loop, int timer_id, void *output)
 {
-    zstr_send (output, "UPDATE");
+    // Please the compiler
+    if (loop && timer_id)
+        zstr_send (output, "UPDATE");
     return 0;
 }
 
@@ -207,7 +209,7 @@ int main (int argc, char *argv [])
     log_debug ("Using sensors template directory: %s", template_dir);
 
 
-    zactor_t *server = zactor_new (fty_sensor_gpio_server, (void*)actor_name);
+    zactor_t *server = zactor_new (fty_sensor_gpio_server, static_cast<void*>(actor_name));
     zactor_t *assets = zactor_new (fty_sensor_gpio_assets, (void*)"gpio-assets");
 
     log_info ("%s - Agent which manages GPI sensors and GPO devices", actor_name);

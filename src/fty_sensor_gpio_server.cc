@@ -171,7 +171,7 @@ s_get (zconfig_t *config, const char* key, std::string &dfl) {
     assert (config);
     char *ret = zconfig_get (config, key, dfl.c_str());
     if (!ret || streq (ret, ""))
-        return (char*)dfl.c_str();
+        return const_cast<char*>(dfl.c_str());
     return ret;
 }
 
@@ -205,7 +205,7 @@ my_mlm_client_recv (mlm_client_t *client, int timeout)
 
     poller = zpoller_new (mlm_client_msgpipe (client), NULL);
 
-    zsock_t *which = (zsock_t *) zpoller_wait (poller, timeout);
+    zsock_t *which = static_cast<zsock_t *>(zpoller_wait (poller, timeout));
     zpoller_destroy (&poller);
     if (which == mlm_client_msgpipe (client)) {
         zmsg_t *reply = mlm_client_recv (client);
@@ -228,8 +228,8 @@ void publish_status (fty_sensor_gpio_server_t *self, _gpx_info_t *sensor, int tt
         snprintf(&port[0], 6, "GP%c%i",
             ((sensor->gpx_direction == GPIO_DIRECTION_IN)?'I':'O'),
             sensor->gpx_number);
-        zhash_insert (aux, FTY_PROTO_METRICS_SENSOR_AUX_PORT, (void*) &port[0]);
-        zhash_insert (aux, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, (void*) sensor->asset_name);
+        zhash_insert (aux, FTY_PROTO_METRICS_SENSOR_AUX_PORT, static_cast<void*>(&port[0]));
+        zhash_insert (aux, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, static_cast<void*>(sensor->asset_name));
         string msg_type = string("status.") + &port[0];
 
         zmsg_t *msg = fty_proto_encode_metric (
@@ -288,7 +288,7 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
     }
 
     // Acquire the current sensor
-    gpx_info = (_gpx_info_t *)zlistx_first (gpx_list);
+    gpx_info = static_cast<_gpx_info_t *>(zlistx_first (gpx_list));
 
     // Loop on all sensors
     for (int cur_sensor_num = 0; cur_sensor_num < sensors_count; cur_sensor_num++) {
@@ -320,7 +320,7 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
             }
 
             // get the correct GPO status if applicable
-            gpo_state_t *state = (gpo_state_t *) zhashx_lookup (self->gpo_states, (void *) gpx_info->asset_name);
+            gpo_state_t *state = static_cast<gpo_state_t *>(zhashx_lookup (self->gpo_states, static_cast<void *>(gpx_info->asset_name)));
             if ((state && (gpx_info->current_state == GPIO_STATE_UNKNOWN))) {
                 gpx_info->current_state = state->last_action;
                 log_debug ("changed GPO state from GPIO_STATE_UNKNOWN to %s", libgpio_get_status_string (gpx_info->current_state).c_str ());
@@ -348,7 +348,7 @@ s_check_gpio_status(fty_sensor_gpio_server_t *self)
                 publish_status (self, gpx_info, 300);
             }
         }
-        gpx_info = (_gpx_info_t *)zlistx_next (gpx_list);
+        gpx_info = static_cast<_gpx_info_t *>(zlistx_next (gpx_list));
     }
     pthread_mutex_unlock (&gpx_list_mutex);
 }
@@ -404,8 +404,8 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
             zlistx_t *gpx_list = get_gpx_list();
             if (gpx_list) {
                 int sensors_count = zlistx_size (gpx_list);
-                _gpx_info_t *gpx_info = (_gpx_info_t *)zlistx_first (gpx_list);
-                gpx_info = (_gpx_info_t *)zlistx_next (gpx_list);
+                _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(zlistx_first (gpx_list));
+                gpx_info = static_cast<_gpx_info_t *>(zlistx_next (gpx_list));
                 for (int cur_sensor_num = 0; cur_sensor_num < sensors_count; cur_sensor_num++) {
                     // Check both asset and ext name
                     if (gpx_info && gpx_info->asset_name && gpx_info->ext_name) {
@@ -416,7 +416,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                                 break;
                         }
                     }
-                    gpx_info = (_gpx_info_t *)zlistx_next (gpx_list);
+                    gpx_info = static_cast<_gpx_info_t *>(zlistx_next (gpx_list));
                 }
                 if ( (gpx_info) && (gpx_info->gpx_direction == GPIO_DIRECTION_OUT)
                     && ((streq(gpx_info->asset_name, sensor_name)) || streq(gpx_info->ext_name, sensor_name)) ) {
@@ -443,7 +443,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                                 // Update the GPO state
                                 gpx_info->current_state = status_value;
 
-                                gpo_state_t *last_state = (gpo_state_t *) zhashx_lookup (self->gpo_states, gpx_info->asset_name);
+                                gpo_state_t *last_state = static_cast<gpo_state_t *>(zhashx_lookup (self->gpo_states, gpx_info->asset_name));
                                 if (last_state == NULL) {
                                     log_debug ("GPO_INTERACTION: can't find sensor '%s'!", sensor_name);
                                     zmsg_addstr (reply, "ERROR");
@@ -548,7 +548,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
 
                 std::regex file_rex (".+\\.tpl");
 
-                zfile_t *item = (zfile_t *) zlist_first (files);
+                zfile_t *item = static_cast<zfile_t *>(zlist_first (files));
                 if (item)
                     zmsg_addstr (reply, "OK");
                 while (item) {
@@ -556,8 +556,8 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                         log_debug ("%s matched", zfile_filename (item, self->template_dir));
                         string template_filename = zfile_filename (item, NULL);
 
-                        string asset_partnumber = zfile_filename (item, self->template_dir);
-                        asset_partnumber.erase (asset_partnumber.size () - 4);
+                        string asset_partnumber_str = zfile_filename (item, self->template_dir);
+                        asset_partnumber_str.erase (asset_partnumber_str.size () - 4);
 
                         // We have a GPIO sensor, process it
                         zconfig_t *sensor_template_file = zconfig_load (template_filename.c_str());
@@ -571,7 +571,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                         const char *alarm_severity = s_get (sensor_template_file, "alarm-severity", "");
                         const char *alarm_message = s_get (sensor_template_file, "alarm-message", "");
 
-                        zmsg_addstr (reply, asset_partnumber.c_str());
+                        zmsg_addstr (reply, asset_partnumber_str.c_str());
                         zmsg_addstr (reply, manufacturer);
                         if (subject == "GPIO_MANIFEST") {
                             zmsg_addstr (reply, type);
@@ -583,7 +583,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                         }
                         zconfig_destroy (&sensor_template_file);
                     }
-                    item = (zfile_t *) zlist_next (files);
+                    item = static_cast<zfile_t *>(zlist_next (files));
                 }
                 zlist_destroy (&files);
                 zdir_destroy (&dir);
@@ -688,7 +688,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
             int num_gpo_number = atoi (gpo_number);
             // this means DELETE
             if (num_gpo_number == -1) {
-                zhashx_delete (self->gpo_states, (void *) assetname);
+                zhashx_delete (self->gpo_states, static_cast<void *>(assetname));
                 zstr_free (&assetname);
                 zstr_free (&gpo_number);
                 return;
@@ -696,7 +696,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
 
             char *default_state = zmsg_popstr (message);
 
-            gpo_state_t *state = (gpo_state_t *) zhashx_lookup (self->gpo_states, (void *) assetname);
+            gpo_state_t *state = static_cast<gpo_state_t *>(zhashx_lookup (self->gpo_states, static_cast<void *>(assetname)));
             if (state != NULL) {
                 int num_default_state = libgpio_get_status_value (default_state);
                 //did the default state changed?
@@ -720,7 +720,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                         log_error ("Error while closing no longer active GPO #%d", state->gpo_number);
 
                     // do the default action on the new port
-                    int num_default_state = libgpio_get_status_value (default_state);
+                    num_default_state = libgpio_get_status_value (default_state);
                     rv = libgpio_write (self->gpio_lib, num_gpo_number, num_default_state);
                     if (rv) {
                         log_error ("Error during default action %s on GPO #%d",
@@ -747,7 +747,7 @@ s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t *message)
                 else
                     state->last_action = libgpio_get_status_value (default_state);
                 state->in_alert = 0;
-                zhashx_update (self->gpo_states, (void *) assetname, (void *) state);
+                zhashx_update (self->gpo_states, static_cast<void *>(assetname), static_cast<void *>(state));
             }
 
             zstr_free (&assetname);
@@ -833,7 +833,7 @@ s_load_state_file (fty_sensor_gpio_server_t *self, const char *state_file)
     // line read successfully - all 4 items are there
     while (fscanf (f_state, "%14s %3d %d %d", asset_name, &gpo_number, &default_state, &last_action) == 4) {
         // existing GPO entry came from fty-sensor-gpio-assets, which takes precendence
-        gpo_state_t *state = (gpo_state_t *) zhashx_lookup (self->gpo_states, (void *)asset_name);
+        gpo_state_t *state = static_cast<gpo_state_t *>(zhashx_lookup (self->gpo_states, static_cast<void *>(asset_name)));
 
         if (state != NULL) {
             // did the port change?
@@ -862,7 +862,7 @@ s_load_state_file (fty_sensor_gpio_server_t *self, const char *state_file)
                 state->in_alert = 0;
 
                 char *asset_name_key = strdup (asset_name);
-                zhashx_update (self->gpo_states, (void *) asset_name_key, (void *) state);
+                zhashx_update (self->gpo_states, static_cast<void *>(asset_name_key), static_cast<void *>(state));
             }
     }
 
@@ -874,11 +874,11 @@ s_save_state_file (fty_sensor_gpio_server_t *self, const char *state_file)
 {
     FILE *f_state = fopen (state_file, "w");
 
-    gpo_state_t *state = (gpo_state_t *) zhashx_first (self->gpo_states);
+    gpo_state_t *state = static_cast<gpo_state_t *>(zhashx_first (self->gpo_states));
     while (state != NULL) {
-        const char *asset_name = (const char *) zhashx_cursor (self->gpo_states);
+        const char *asset_name = static_cast<const char *>(zhashx_cursor (self->gpo_states));
         fprintf (f_state, "%s %d %d %d\n", asset_name, state->gpo_number, state->default_state, state->last_action);
-        state = (gpo_state_t *) zhashx_next (self->gpo_states);
+        state = static_cast<gpo_state_t *>(zhashx_next (self->gpo_states));
     }
 
     fclose (f_state);
@@ -998,11 +998,11 @@ request_capabilities_info(fty_sensor_gpio_server_t *self, const char *type)
         // doesn't allow number as a key
         const std::string port_str (value+1, 1);
         // convert to int
-        int port_num = (int) strtol (port_str.c_str (), NULL, 10);
+        int port_num = static_cast<int>(strtol (port_str.c_str (), NULL, 10));
         zstr_free (&value);
         // GPx pin number
         value = zmsg_popstr (reply);
-        int pin_num = (int) strtol (value, NULL, 10);
+        int pin_num = static_cast<int>(strtol (value, NULL, 10));
         if (streq (type, "gpi"))
             libgpio_add_gpi_mapping (self->gpio_lib, port_num, pin_num);
         else
@@ -1021,7 +1021,7 @@ request_capabilities_info(fty_sensor_gpio_server_t *self, const char *type)
 void
 fty_sensor_gpio_server (zsock_t *pipe, void *args)
 {
-    char *name = (char *)args;
+    char *name = static_cast<char *>(args);
     if (!name) {
         log_error ("Adress for fty-sensor-gpio actor is NULL");
         return;
@@ -1258,15 +1258,16 @@ fty_sensor_gpio_server_test (bool verbose)
 */
     pthread_mutex_unlock (&gpx_list_mutex);
 
-    zmsg_t *msg = zmsg_new ();
-    zmsg_addstr (msg, "sensorgpio-11");
-    zmsg_addstr (msg, "2");
-    zmsg_addstr (msg, "closed");
-    rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPOSTATE", NULL, 5000, &msg);
-
-    assert ( rv == 0 ); // no response
     // Test #1: Get status for an asset through its published metric
     {
+        zmsg_t *msg = zmsg_new ();
+        zmsg_addstr (msg, "sensorgpio-11");
+        zmsg_addstr (msg, "2");
+        zmsg_addstr (msg, "closed");
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPOSTATE", NULL, 5000, &msg);
+
+        assert ( rv == 0 ); // no response
+
         mlm_client_t *metrics_listener = mlm_client_new ();
         mlm_client_connect (metrics_listener, endpoint, 1000, "fty_sensor_gpio_metrics_listener");
         mlm_client_set_consumer (metrics_listener, FTY_PROTO_STREAM_METRICS_SENSOR, ".*");
@@ -1298,6 +1299,7 @@ fty_sensor_gpio_server_test (bool verbose)
         assert (streq (fty_proto_aux_string (frecv, FTY_PROTO_METRICS_SENSOR_AUX_SNAME, NULL), "gpo-11"));
         fty_proto_destroy (&frecv);
         zmsg_destroy (&recv);
+        zmsg_destroy (&msg);
 
         mlm_client_destroy (&metrics_listener);
     }
@@ -1318,7 +1320,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zmsg_addstr (msg, "WARNING");           // alarm_severity
         zmsg_addstr (msg, "test triggered");    // alarm_message
 
-        int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_TEMPLATE_ADD", NULL, 5000, &msg);
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_TEMPLATE_ADD", NULL, 5000, &msg);
         assert ( rv == 0 );
 
         // Check the server answer
@@ -1335,6 +1337,7 @@ fty_sensor_gpio_server_test (bool verbose)
 
         zuuid_destroy (&zuuid);
         zmsg_destroy (&recv);
+        zmsg_destroy (&msg);
     }
 
     // Test #3: Get GPIO_MANIFEST request and check it
@@ -1343,7 +1346,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zmsg_t *msg = zmsg_new ();
         zuuid_t *zuuid = zuuid_new ();
         zmsg_addstr (msg, zuuid_str_canonical (zuuid));
-        int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_MANIFEST", NULL, 5000, &msg);
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_MANIFEST", NULL, 5000, &msg);
         assert ( rv == 0 );
 
         // Check the server answer
@@ -1390,7 +1393,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zuuid_t *zuuid = zuuid_new ();
         zmsg_addstr (msg, zuuid_str_canonical (zuuid));
 
-        int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_MANIFEST_SUMMARY", NULL, 5000, &msg);
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPIO_MANIFEST_SUMMARY", NULL, 5000, &msg);
         assert ( rv == 0 );
 
         // Check the server answer
@@ -1420,7 +1423,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zmsg_addstr (msg, zuuid_str_canonical (zuuid));
         zmsg_addstr (msg, "gpo-11");     // sensor
         zmsg_addstr (msg, "open");          // action
-        int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPO_INTERACTION", NULL, 5000, &msg);
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPO_INTERACTION", NULL, 5000, &msg);
         assert ( rv == 0 );
 
         // Check the server answer
@@ -1437,10 +1440,10 @@ fty_sensor_gpio_server_test (bool verbose)
 
         // Now check the filesystem
         std::string gpo1_fn = gpo_sys_dir + "/value";
-        int handle = open (gpo1_fn.c_str(), O_RDONLY, 0);
+        handle = open (gpo1_fn.c_str(), O_RDONLY, 0);
         assert (handle >= 0);
         char readbuf[2];
-        int rc = read (handle, &readbuf[0], 1);
+        rc = read (handle, &readbuf[0], 1);
         assert (rc == 1);
         close (handle);
         assert ( readbuf[0] == '1' ); // 1 == GPIO_STATE_OPENED
@@ -1462,7 +1465,7 @@ fty_sensor_gpio_server_test (bool verbose)
         zmsg_addstr (msg, zuuid_str_canonical (zuuid));
         zmsg_addstr (msg, "gpo-12");     // sensor
         zmsg_addstr (msg, "open");       // action
-        int rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPO_INTERACTION", NULL, 5000, &msg);
+        rv = mlm_client_sendto (mb_client, FTY_SENSOR_GPIO_AGENT, "GPO_INTERACTION", NULL, 5000, &msg);
         assert ( rv == 0 );
 
         // Check the server answer
@@ -1479,10 +1482,10 @@ fty_sensor_gpio_server_test (bool verbose)
 
         // Now check the filesystem
         std::string gpo2_fn = gpo_mapping_sys_dir + "/value";
-        int handle = open (gpo2_fn.c_str(), O_RDONLY, 0);
+        handle = open (gpo2_fn.c_str(), O_RDONLY, 0);
         assert (handle >= 0);
         char readbuf[2];
-        int rc = read (handle, &readbuf[0], 1);
+        rc = read (handle, &readbuf[0], 1);
         assert (rc == 1);
         close (handle);
         assert ( readbuf[0] == '1' ); // 1 == GPIO_STATE_OPENED

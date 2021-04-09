@@ -50,9 +50,9 @@ void *dup_int_ptr (const void *ptr)
         log_error ("Attempt to dup NULL");
         return NULL ;
     }
-    int *new_ptr = (int *) zmalloc (sizeof (int));
-    *new_ptr = *(const int *)ptr;
-    return (void *)new_ptr;
+    int *new_ptr = static_cast<int *> (zmalloc (sizeof (int)));
+    *new_ptr = *(static_cast<const int *>(ptr));
+    return static_cast<void *> (new_ptr);
 }
 
 static void free_fn (void ** self_ptr)
@@ -166,7 +166,7 @@ void
 libgpio_add_gpi_mapping (libgpio_t *self, int port_num, int pin_num)
 {
     log_debug ("adding GPI mapping from port %d to pin %d", port_num, pin_num);
-    zhashx_insert (self->gpi_mapping, (void *)&port_num, (void *)&pin_num);
+    zhashx_insert (self->gpi_mapping, static_cast<void *> (&port_num), static_cast<void *> (&pin_num));
 }
 
 //---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ void
 libgpio_add_gpo_mapping (libgpio_t *self, int port_num, int pin_num)
 {
     log_debug ("adding GPIO mapping from port %d to pin %d", port_num, pin_num);
-    zhashx_insert (self->gpo_mapping, (void *)&port_num, (void *)&pin_num);
+    zhashx_insert (self->gpo_mapping, static_cast<void *> (&port_num), static_cast<void *> (&pin_num));
 }
 //  --------------------------------------------------------------------------
 //  Set the test mode
@@ -193,20 +193,20 @@ int
 libgpio_compute_pin_number (libgpio_t *self, int GPx_number, int direction)
 {
     if (direction == GPIO_DIRECTION_IN) {
-        int *found_pin_ptr = (int *) zhashx_lookup (self->gpi_mapping, (const void *)&GPx_number);
+        int *found_pin_ptr = static_cast<int *> (zhashx_lookup (self->gpi_mapping, static_cast<const void *>(&GPx_number)));
         if (found_pin_ptr == NULL) {
             int pin = self->gpio_base_address + self->gpi_offset + GPx_number;
-            zhashx_update (self->gpi_mapping, (const void *)&GPx_number, (void *)&pin);
+            zhashx_update (self->gpi_mapping, static_cast<const void *>(&GPx_number), static_cast<void *> (&pin));
             return pin;
         }
         else
             return *found_pin_ptr;
     }
     else {
-        int *found_pin_ptr = (int *) zhashx_lookup (self->gpo_mapping, (const void *)&GPx_number);
+        int *found_pin_ptr = static_cast<int *> (zhashx_lookup (self->gpo_mapping, static_cast<const void *>(&GPx_number)));
         if (found_pin_ptr == NULL) {
             int pin = self->gpio_base_address + self->gpo_offset + GPx_number;
-            zhashx_update (self->gpo_mapping, (const void *)&GPx_number, (void *)&pin);
+            zhashx_update (self->gpo_mapping, static_cast<const void *>(&GPx_number), static_cast<void *> (&pin));
             return pin;
         }
         else
@@ -236,9 +236,9 @@ libgpio_read (libgpio_t *self, int GPx_number, int direction)
     int pin;
     int *pin_ptr;
     if (direction == GPIO_DIRECTION_IN)
-        pin_ptr = (int *)(zhashx_lookup (self->gpi_mapping, (const void *)&GPx_number));
+        pin_ptr = static_cast<int *> (zhashx_lookup (self->gpi_mapping, static_cast<const void *>(&GPx_number)));
     else
-        pin_ptr = (int *)(zhashx_lookup (self->gpo_mapping, (const void *)&GPx_number));
+        pin_ptr = static_cast<int *> (zhashx_lookup (self->gpo_mapping, static_cast<const void *>(&GPx_number)));
     if (pin_ptr == NULL)
         pin = libgpio_compute_pin_number (self, GPx_number, direction);
     else
@@ -316,7 +316,7 @@ libgpio_write (libgpio_t *self, int GPO_number, int value)
     }
 
     int pin;
-    int *pin_ptr = (int *)(zhashx_lookup (self->gpo_mapping, (const void *)&GPO_number));
+    int *pin_ptr = static_cast<int *> (zhashx_lookup (self->gpo_mapping, static_cast<const void *>(&GPO_number)));
     if (pin_ptr == NULL)
         pin = libgpio_compute_pin_number (self, GPO_number, GPIO_DIRECTION_OUT);
     else
@@ -473,22 +473,8 @@ libgpio_test (bool verbose)
     // selftest-ro; if your test creates filesystem objects, please
     // do so under selftest-rw. They are defined below along with a
     // usecase for the variables (assert) to make compilers happy.
-    const char *SELFTEST_DIR_RO = "selftest-ro";
-    const char *SELFTEST_DIR_RW = "selftest-rw";
     assert (SELFTEST_DIR_RO);
     assert (SELFTEST_DIR_RW);
-    // Uncomment these to use C++ strings in C++ selftest code:
-    //std::string str_SELFTEST_DIR_RO = std::string(SELFTEST_DIR_RO);
-    //std::string str_SELFTEST_DIR_RW = std::string(SELFTEST_DIR_RW);
-    //assert ( (str_SELFTEST_DIR_RO != "") );
-    //assert ( (str_SELFTEST_DIR_RW != "") );
-    // NOTE that for "char*" context you need (str_SELFTEST_DIR_RO + "/myfilename").c_str()
-
-    // Common pattern for plain C:
-    // char *test_state_file = zsys_sprintf ("%s/state_file", SELFTEST_DIR_RW);
-    // assert (test_state_file != NULL);
-    // zstr_sendx (fs, "STATE_FILE", test_state_file, NULL);
-    // zstr_free (&test_state_file);
 
     // Write test
     // Let's first write to the dummy GPIO, so that the read works afterward
