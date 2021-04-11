@@ -30,33 +30,33 @@ etn_target(exe ${PROJECT_NAME}
 etn_configure_file(
     resources/${PROJECT_NAME}.cfg.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}
+    DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}"
 )
 
 # systemd unit
 etn_configure_file(
     resources/${PROJECT_NAME}.service.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system/
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/systemd/system/"
 )
 
 # systemd tmpfiles
 etn_configure_file(
     resources/${PROJECT_NAME}.conf.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION /usr/lib/tmpfiles.d/
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/tmpfiles.d/"
 )
 
 # udev rules files
 etn_configure_file(
     resources/42ity-gpio-permissions.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION /lib/udev/
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/udev/"
 )
 etn_configure_file(
     resources/42-ity-gpio.rules.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION /etc/udev/rules.d/
+    DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/udev/rules.d/"
 )
 
 # GPI templates for known devices
