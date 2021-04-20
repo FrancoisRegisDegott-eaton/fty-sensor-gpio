@@ -60,7 +60,7 @@ etn_configure_file(
 )
 
 # GPI templates for known devices
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/DCS001.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/DCS001.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
 install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/M12.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
 install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/VIB001.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
 install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/WLD012.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
