@@ -44,7 +44,7 @@ etn_configure_file(
 etn_configure_file(
     resources/${PROJECT_NAME}.conf.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/tmpfiles.d/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/tmpfiles.d/"
 )
 
 # udev rules files
@@ -60,14 +60,14 @@ etn_configure_file(
 )
 
 # GPI templates for known devices
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/DCS001.tpl DESTINATION ${DATAROOTDIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/M12.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/VIB001.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/WLD012.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/XCELW.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/GPOGEN.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-prealarm.tpl DESTINATION ${DATADIR}/data)
-install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-alarm.tpl DESTINATION ${DATADIR}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/DCS001.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/M12.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/VIB001.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/WLD012.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/XCELW.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/GPOGEN.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-prealarm.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
+install(FILES ${PROJECT_SOURCE_DIR}/src/test/selftest-ro/data/MZXE-alarm.tpl DESTINATION ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/data)
 
 if (BUILD_TESTING)
 
