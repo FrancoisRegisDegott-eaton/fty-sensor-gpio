@@ -51,7 +51,7 @@ etn_configure_file(
 etn_configure_file(
     resources/42ity-gpio-permissions.in
     TARGET      ${PROJECT_NAME}
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/udev/"
+    DESTINATION "/lib/udev/"
 )
 etn_configure_file(
     resources/42-ity-gpio.rules.in
