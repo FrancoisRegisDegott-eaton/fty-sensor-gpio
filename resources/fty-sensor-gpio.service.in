@@ -19,7 +19,7 @@ EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/fty
 EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/fty__%n.conf
 Environment="prefix=@CMAKE_INSTALL_PREFIX@"
 Environment='SYSTEMD_UNIT_FULLNAME=%n'
-ExecStart=@prefix@/bin/fty-sensor-gpio -c @CMAKE_INSTALL_SYSCONFDIR@/@PROJECT_NAME@/@PROJECT_NAME@.cfg
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/@PROJECT_NAME@ -c @CMAKE_INSTALL_SYSCONFDIR@/@PROJECT_NAME@/@PROJECT_NAME@.cfg
 # Try the usual default SIGTERM, but don't wait forever if service locked-up
 TimeoutStopSec=5
 SuccessExitStatus=SIGKILL SIGTERM 143
