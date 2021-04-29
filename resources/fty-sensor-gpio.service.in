@@ -9,17 +9,17 @@ BindsTo=fty-asset.service
 Type=simple
 User=bios
 Group=gpio
-EnvironmentFile=-@prefix@/share/bios/etc/default/bios
-EnvironmentFile=-@prefix@/share/bios/etc/default/bios__%n.conf
-EnvironmentFile=-@prefix@/share/fty/etc/default/fty
-EnvironmentFile=-@prefix@/share/fty/etc/default/fty__%n.conf
-EnvironmentFile=-@sysconfdir@/default/bios
-EnvironmentFile=-@sysconfdir@/default/bios__%n.conf
-EnvironmentFile=-@sysconfdir@/default/fty
-EnvironmentFile=-@sysconfdir@/default/fty__%n.conf
-Environment="prefix=@prefix@"
+EnvironmentFile=-@CMAKE_INSTALL_PREFIX@/share/bios/etc/default/bios
+EnvironmentFile=-@CMAKE_INSTALL_PREFIX@/share/bios/etc/default/bios__%n.conf
+EnvironmentFile=-@CMAKE_INSTALL_PREFIX@/share/fty/etc/default/fty
+EnvironmentFile=-@CMAKE_INSTALL_PREFIX@/share/fty/etc/default/fty__%n.conf
+EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/bios
+EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/bios__%n.conf
+EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/fty
+EnvironmentFile=-@CMAKE_INSTALL_SYSCONFDIR@/default/fty__%n.conf
+Environment="prefix=@CMAKE_INSTALL_PREFIX@"
 Environment='SYSTEMD_UNIT_FULLNAME=%n'
-ExecStart=@prefix@/bin/fty-sensor-gpio -c @sysconfdir@/@PACKAGE@/fty-sensor-gpio.cfg
+ExecStart=@prefix@/bin/fty-sensor-gpio -c @CMAKE_INSTALL_SYSCONFDIR@/@PROJECT_NAME@/@PROJECT_NAME@.cfg
 # Try the usual default SIGTERM, but don't wait forever if service locked-up
 TimeoutStopSec=5
 SuccessExitStatus=SIGKILL SIGTERM 143
