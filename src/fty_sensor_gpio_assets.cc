@@ -33,16 +33,6 @@ zlistx_t *_gpx_list = NULL;
 // GPx list protection mutex
 pthread_mutex_t gpx_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//  Structure of our class
-
-struct _fty_sensor_gpio_assets_t {
-    char               *name;         // actor name
-    mlm_client_t       *mlm;          // malamute client
-    zlistx_t           *gpx_list;     // List of monitored GPx _gpx_info_t (10xGPI / 5xGPO on IPC3000)
-    char               *template_dir; // Location of the template files
-    bool               test_mode;     // true if we are in test mode, false otherwise
-};
-
 
 //  --------------------------------------------------------------------------
 //  Return the list of monitored sensors without transfering ownership
@@ -61,7 +51,7 @@ get_gpx_list()
 
 void sensor_free(void **item)
 {
-    _gpx_info_t *gpx_info = (_gpx_info_t *)*item;
+    _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(*item);
 
     if (!gpx_info)
         return;
@@ -105,7 +95,7 @@ void sensor_free(void **item)
 static void *sensor_dup(const void *item)
 {
     // Simply return item itself
-    return (void*)item;
+    return const_cast<void*>(item);
 }
 
 //  --------------------------------------------------------------------------
@@ -129,7 +119,7 @@ static int sensor_cmp(const void *item1, const void *item2)
 static
 _gpx_info_t *sensor_new()
 {
-    _gpx_info_t *gpx_info = (_gpx_info_t *)malloc(sizeof(_gpx_info_t));
+    _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(malloc(sizeof(_gpx_info_t)));
     if (!gpx_info) {
         log_error ("Can't allocate gpx_info!");
         return NULL;
@@ -231,13 +221,13 @@ add_sensor(fty_sensor_gpio_assets_t *self, const char* operation,
     pthread_mutex_lock (&gpx_list_mutex);
 
     // Check for an already existing entry for this asset
-    prev_gpx_info = (_gpx_info_t*)zlistx_find (_gpx_list, (void *) gpx_info);
+    prev_gpx_info = static_cast<_gpx_info_t*>(zlistx_find (_gpx_list,  static_cast<void *>(gpx_info)));
 
     if ( prev_gpx_info != NULL) {
         // In case of update, we remove the previous entry, and create a new one
         if ( streq (operation, "update" ) ) {
             // FIXME: we may lose some data, check for merging entries prior to deleting
-            if (zlistx_delete (_gpx_list, (void *)prev_gpx_info) == -1) {
+            if (zlistx_delete (_gpx_list, static_cast<void *>(prev_gpx_info)) == -1) {
                 log_error ("Update: error deleting the previous GPx record for '%s'!", assetname);
                 pthread_mutex_unlock (&gpx_list_mutex);
                 return -1;
@@ -249,7 +239,7 @@ add_sensor(fty_sensor_gpio_assets_t *self, const char* operation,
             return 0;
         }
     }
-    zlistx_add_end (_gpx_list, (void *) gpx_info);
+    zlistx_add_end (_gpx_list, static_cast<void *>(gpx_info));
 
     pthread_mutex_unlock (&gpx_list_mutex);
 
@@ -275,7 +265,7 @@ delete_sensor(fty_sensor_gpio_assets_t *self, const char* assetname)
 
     // We need to find out GPx direction
     // And we cannot use gpx_info_result because it contains garbage on `gpx_direction` position
-    _gpx_info_t *info = (_gpx_info_t *)zlistx_first (_gpx_list);
+    _gpx_info_t *info = static_cast<_gpx_info_t *>(zlistx_first (_gpx_list));
     while (info != NULL) {
         char *info_name = info->asset_name;
         if (streq (info_name, assetname)) {
@@ -288,7 +278,7 @@ delete_sensor(fty_sensor_gpio_assets_t *self, const char* assetname)
             }
             break;
         }
-        info = (_gpx_info_t *)zlistx_next (_gpx_list);
+        info = static_cast<_gpx_info_t *>(zlistx_next (_gpx_list));
     }
 
     _gpx_info_t *gpx_info_result = NULL;
@@ -303,8 +293,8 @@ delete_sensor(fty_sensor_gpio_assets_t *self, const char* assetname)
 
     pthread_mutex_lock (&gpx_list_mutex);
 
-    gpx_info_result = (_gpx_info_t*)zlistx_find (_gpx_list, (void *) gpx_info);
-    sensor_free((void**)&gpx_info);
+    gpx_info_result = static_cast<_gpx_info_t*>(zlistx_find (_gpx_list, static_cast<void *>(gpx_info)));
+    sensor_free(reinterpret_cast<void**>(&gpx_info));
 
     if ( gpx_info_result == NULL ) {
         retval = 1;
@@ -312,7 +302,7 @@ delete_sensor(fty_sensor_gpio_assets_t *self, const char* assetname)
     else {
         log_debug ("Deleting '%s'", assetname);
         // Delete from zlist
-        zlistx_delete (_gpx_list, (void *)gpx_info_result);
+        zlistx_delete (_gpx_list, gpx_info_result);
     }
     pthread_mutex_unlock (&gpx_list_mutex);
     return retval;
@@ -347,7 +337,7 @@ is_asset_gpio_sensor (fty_sensor_gpio_assets_t *self, string asset_subtype, stri
         return "";
 
     // Check if a sensor template exists
-    template_filename = string(self->template_dir) + string(asset_model) + string(".tpl");
+    template_filename = string(self->template_dir) + asset_model + string(".tpl");
 
     FILE *template_file = fopen(template_filename.c_str(), "r");
     if (!template_file) {
@@ -584,11 +574,12 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
 
         if (reply2)
         {
-            char *uuid_recv = zmsg_popstr (reply2);
+            uuid_recv = zmsg_popstr (reply2);
 
             if (0 != strcmp (zuuid_str_canonical (uuid), uuid_recv)) {
                 log_debug ("%s:\tGPIO zuuid doesn't match 2", self->name);
                 zmsg_destroy (&reply2);
+                zstr_free (&uuid_recv);
                 continue;
             }
 
@@ -611,6 +602,7 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
             }
             asset = zmsg_popstr (reply);
             zmsg_destroy (&reply2);
+            zstr_free (&uuid_recv);
         }
         zmsg_destroy (&msg);
 
@@ -624,7 +616,7 @@ request_sensor_assets(fty_sensor_gpio_assets_t *self)
 fty_sensor_gpio_assets_t *
 fty_sensor_gpio_assets_new (const char* name)
 {
-    fty_sensor_gpio_assets_t *self = (fty_sensor_gpio_assets_t *) zmalloc (sizeof (fty_sensor_gpio_assets_t));
+    fty_sensor_gpio_assets_t *self = static_cast<fty_sensor_gpio_assets_t *>(zmalloc (sizeof (fty_sensor_gpio_assets_t)));
     assert (self);
     //  Initialize class properties
     self->mlm         = mlm_client_new();
@@ -637,9 +629,9 @@ fty_sensor_gpio_assets_new (const char* name)
     assert (_gpx_list);
 
     // Declare zlist item handlers
-    zlistx_set_duplicator (_gpx_list, (czmq_duplicator *) sensor_dup);
-    zlistx_set_destructor (_gpx_list, (czmq_destructor *) sensor_free);
-    zlistx_set_comparator (_gpx_list, (czmq_comparator *) sensor_cmp);
+    zlistx_set_duplicator (_gpx_list, static_cast<czmq_duplicator *>(sensor_dup));
+    zlistx_set_destructor (_gpx_list, static_cast<czmq_destructor *>(sensor_free));
+    zlistx_set_comparator (_gpx_list, static_cast<czmq_comparator *>(sensor_cmp));
 
     return self;
 }
@@ -676,7 +668,7 @@ fty_sensor_gpio_assets_destroy (fty_sensor_gpio_assets_t **self_p)
 void
 fty_sensor_gpio_assets (zsock_t *pipe, void *args)
 {
-    char *name = (char *)args;
+    char *name = static_cast<char *>(args);
     if (!name) {
         log_error ("Adress for fty-sensor-gpio-assets actor is NULL");
         return;
@@ -782,14 +774,14 @@ fty_sensor_gpio_assets_test (bool verbose)
     //  @selftest
 
     // Note: If your selftest reads SCMed fixture data, please keep it in
-    // src/selftest-ro; if your test creates filesystem objects, please
-    // do so under src/selftest-rw. They are defined below along with a
+    // selftest-ro; if your test creates filesystem objects, please
+    // do so under selftest-rw. They are defined below along with a
     // usecase for the variables (assert) to make compilers happy.
-    //const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    // Note: here, we use the templates from src/data to check if assets
+    //const char *SELFTEST_DIR_RO = "selftest-ro";
+    // Note: here, we use the templates from data to check if assets
     // are GPIOs
-    const char *SELFTEST_DIR_RO = "src/selftest-ro";
-    const char *SELFTEST_DIR_RW = "src/selftest-rw";
+    const char *SELFTEST_DIR_RO = "selftest-ro";
+    const char *SELFTEST_DIR_RW = "selftest-rw";
     assert (SELFTEST_DIR_RO);
     assert (SELFTEST_DIR_RW);
     // Uncomment these to use C++ strings in C++ selftest code:
@@ -934,7 +926,7 @@ fty_sensor_gpio_assets_test (bool verbose)
         int sensors_count = zlistx_size (test_gpx_list);
         assert (sensors_count == 3);
         // Test the first sensor
-        _gpx_info_t *gpx_info = (_gpx_info_t *)zlistx_first (test_gpx_list);
+        _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(zlistx_first (test_gpx_list));
         assert (gpx_info);
         assert (streq (gpx_info->asset_name, "sensorgpio-10"));
         assert (streq (gpx_info->ext_name, "GPIO-Sensor-Door1"));
@@ -951,7 +943,7 @@ fty_sensor_gpio_assets_test (bool verbose)
         assert (streq (gpx_info->alarm_message, "Door has been $status"));
 
         // Test the 2nd sensor
-        gpx_info = (_gpx_info_t *)zlistx_next (test_gpx_list);
+        gpx_info = static_cast<_gpx_info_t *>(zlistx_next (test_gpx_list));
         assert (gpx_info);
         assert (streq (gpx_info->asset_name, "sensorgpio-11"));
         assert (streq (gpx_info->ext_name, "GPIO-Sensor-Waterleak1"));
@@ -966,7 +958,7 @@ fty_sensor_gpio_assets_test (bool verbose)
         assert (gpx_info->gpx_direction == GPIO_DIRECTION_IN);
 
         // Test the GPO
-        gpx_info = (_gpx_info_t *)zlistx_next (test_gpx_list);
+        gpx_info = static_cast<_gpx_info_t *>(zlistx_next (test_gpx_list));
         assert (gpx_info);
         assert (streq (gpx_info->asset_name, "gpo-12"));
         assert (streq (gpx_info->ext_name, "GPO-Beacon"));
@@ -1051,9 +1043,9 @@ fty_sensor_gpio_assets_test (bool verbose)
         int sensors_count = zlistx_size (test_gpx_list);
         assert (sensors_count == 2);
         // Only test the first sensor
-        _gpx_info_t *gpx_info = (_gpx_info_t *)zlistx_first (test_gpx_list);
+        _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(zlistx_first (test_gpx_list));
         assert (gpx_info);
-        gpx_info = (_gpx_info_t *)zlistx_next (test_gpx_list);
+        gpx_info = static_cast<_gpx_info_t *>(zlistx_next (test_gpx_list));
         assert (gpx_info);
         assert (streq (gpx_info->asset_name, "sensorgpio-10"));
         assert (streq (gpx_info->ext_name, "GPIO-Sensor-Door1"));
@@ -1105,7 +1097,7 @@ fty_sensor_gpio_assets_test (bool verbose)
         assert (sensors_count == 1);
         log_debug("test_gpx_list = %i", sensors_count);
         // There must remain only 'sensorgpio-11'
-        _gpx_info_t *gpx_info = (_gpx_info_t *)zlistx_first (test_gpx_list);
+        _gpx_info_t *gpx_info = static_cast<_gpx_info_t *>(zlistx_first (test_gpx_list));
         assert (gpx_info);
         assert (streq (gpx_info->asset_name, "sensorgpio-11"));
 

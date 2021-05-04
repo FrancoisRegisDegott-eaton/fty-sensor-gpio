@@ -27,25 +27,40 @@
 #define FTY_SENSOR_GPIO_CLASSES_H_INCLUDED
 
 //  Platform definitions, must come first
-#include "platform.h"
+//#include "platform.h"
+
+//  External dependencies
+#include <czmq.h>
+#include <malamute.h>
+#include <fty_log.h>
+#include <ftyproto.h>
 
 //  External API
-#include "../include/fty_sensor_gpio.h"
+#include "fty_sensor_gpio.h"
 
-//  Opaque class structures to allow forward references
+// Configuration accessors
+// FIXME: why do we need that? zconfig_get should already do this, no?
+extern const char*
+    s_get (zconfig_t *config, const char* key, std::string &dfl);
+
+extern const char*
+    s_get (zconfig_t *config, const char* key, const char*dfl);
 
 //  Extra headers
 
 //  Internal API
-
+#include "libgpio.h"
+#include "fty_sensor_gpio_alerts.h"
+#include "fty_sensor_gpio_assets.h"
+#include "fty_sensor_gpio_server.h"
 
 //  *** To avoid double-definitions, only define if building without draft ***
-#ifndef FTY_SENSOR_GPIO_BUILD_DRAFT_API
+//#ifndef FTY_SENSOR_GPIO_BUILD_DRAFT_API
 
 //  Self test for private classes
-FTY_SENSOR_GPIO_PRIVATE void
+void
     fty_sensor_gpio_private_selftest (bool verbose, const char *subtest);
 
-#endif // FTY_SENSOR_GPIO_BUILD_DRAFT_API
+//#endif // FTY_SENSOR_GPIO_BUILD_DRAFT_API
 
 #endif

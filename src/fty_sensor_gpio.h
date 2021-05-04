@@ -22,6 +22,8 @@
 #ifndef FTY_SENSOR_GPIO_H_H_INCLUDED
 #define FTY_SENSOR_GPIO_H_H_INCLUDED
 
+
+#include <czmq.h>
 #include <iostream>
 #include <sstream>
 #include <cstddef>
@@ -30,7 +32,7 @@
 using namespace std;
 
 //  Include the project library file
-#include "fty_sensor_gpio_library.h"
+//#include "fty_sensor_gpio_library.h"
 
 //  Add your own public definitions here, if you need them
 #define FTY_SENSOR_GPIO_AGENT "fty-sensor-gpio"

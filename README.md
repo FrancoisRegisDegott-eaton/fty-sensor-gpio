@@ -11,10 +11,16 @@ indicate a status or enable / disable a device.
 To build fty-sensor-gpio project run:
 
 ```bash
-./autogen.sh
-./configure
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=usr -DBUILD_TESTING=On ..
 make
-make check # to run self-test
+sudo make install
+```
+
+Optionally, to run fty-outage tests run:
+
+```bash
+make test
 ```
 
 ## How to run

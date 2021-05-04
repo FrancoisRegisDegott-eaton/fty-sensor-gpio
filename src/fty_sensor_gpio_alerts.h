@@ -28,19 +28,19 @@ extern "C" {
 
 //  @interface
 //  fty_sensor_gpio_alerts actor
-FTY_SENSOR_GPIO_EXPORT void
+void
 fty_sensor_gpio_alerts(zsock_t *pipe, void *args);
 
 //  Create a new fty_sensor_gpio_alerts
-//FTY_SENSOR_GPIO_EXPORT fty_sensor_gpio_alerts_t *
+//fty_sensor_gpio_alerts_t *
 //    fty_sensor_gpio_alerts_new (void);
 
 //  Destroy the fty_sensor_gpio_alerts
-//FTY_SENSOR_GPIO_EXPORT void
+//void
 //    fty_sensor_gpio_alerts_destroy (fty_sensor_gpio_alerts_t **self_p);
 
 //  Self test of this class
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_alerts_test (bool verbose);
 
 //  @end

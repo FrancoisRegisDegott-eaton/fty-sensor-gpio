@@ -29,11 +29,11 @@ extern "C" {
 
 //  @interface
 //  fty_info_server actor
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_server (zsock_t *pipe, void *args);
 
 //  Self test of this class
-FTY_SENSOR_GPIO_EXPORT void
+void
     fty_sensor_gpio_server_test (bool verbose);
 
 //  @end
