@@ -10,7 +10,7 @@
 extern zmsg_t* hw_cap_test_reply_gpi;
 extern zmsg_t* hw_cap_test_reply_gpo;
 
-void libgpio_test()
+static void libgpio_test()
 {
     const char* SELFTEST_DIR_RW = ".";
 
