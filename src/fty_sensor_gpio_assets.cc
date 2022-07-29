@@ -266,6 +266,7 @@ static int delete_sensor(fty_sensor_gpio_assets_t* self, const char* assetname)
                 zmsg_addstr(request, assetname);
                 zmsg_addstr(request, "-1");
                 mlm_client_sendto(self->mlm, FTY_SENSOR_GPIO_AGENT, "GPOSTATE", NULL, 1000, &request);
+                zmsg_destroy(&request);
             }
             break;
         }
@@ -352,7 +353,6 @@ static void fty_sensor_gpio_handle_asset(fty_sensor_gpio_assets_t* self, fty_pro
     if (fty_proto_id(ftymessage) != FTY_PROTO_ASSET)
         return;
 
-    zconfig_t*  config_template = NULL;
     const char* operation       = fty_proto_operation(ftymessage);
     const char* assetname       = fty_proto_name(ftymessage);
 
@@ -391,7 +391,7 @@ static void fty_sensor_gpio_handle_asset(fty_sensor_gpio_assets_t* self, fty_pro
             }
 
             // We have a GPI sensor, process it
-            config_template = zconfig_load(config_template_filename.c_str());
+            zconfig_t* config_template = zconfig_load(config_template_filename.c_str());
             if (!config_template) {
                 log_debug("Can't load sensor template file"); // FIXME: error
                 return;
@@ -453,12 +453,10 @@ static void fty_sensor_gpio_handle_asset(fty_sensor_gpio_assets_t* self, fty_pro
             if (streq(sensor_normal_state, "")) {
                 log_debug("No sensor normal state found in template nor provided by the user!");
                 log_debug("Skipping sensor");
-                zconfig_destroy(&config_template);
                 return;
             }
             if (streq(sensor_gpx_number, "")) {
                 log_debug("No sensor pin (port) provided! Skipping sensor");
-                zconfig_destroy(&config_template);
                 return;
             }
 
@@ -499,85 +497,118 @@ void request_sensor_assets(fty_sensor_gpio_assets_t* self)
 {
     log_debug("%s:\tRequest GPIO sensors list", self->name);
 
-    zmsg_t*  msg  = zmsg_new();
+    zpoller_t* poller = zpoller_new(mlm_client_msgpipe(self->mlm), NULL);
+    if (!poller) {
+        log_error("%s: poller creation failed", self->name);
+        return;
+    }
+
     zuuid_t* uuid = zuuid_new();
+
+    zmsg_t*  msg = zmsg_new();
     zmsg_addstr(msg, "GET");
     zmsg_addstr(msg, zuuid_str_canonical(uuid));
     zmsg_addstr(msg, "gpo");
     zmsg_addstr(msg, "sensorgpio");
-
     int rv = mlm_client_sendto(self->mlm, "asset-agent", "ASSETS", NULL, 5000, &msg);
-    if (rv != 0)
-        log_error("%s:\tRequest GPIO sensors list failed", self->name);
-    else
-        log_debug("%s:\tGPIO sensors list request sent successfully", self->name);
     zmsg_destroy(&msg);
+    if (rv != 0) {
+        log_error("%s:\tRequest GPIO sensors list failed", self->name);
+        zuuid_destroy(&uuid);
+        zpoller_destroy(&poller);
+        return;
+    }
 
-    zmsg_t* reply = mlm_client_recv(self->mlm);
-    if (!reply)
+    log_debug("%s:\tGPIO sensors list request sent successfully", self->name);
+
+    zmsg_t* reply = (zpoller_wait(poller, 5000)) ? mlm_client_recv(self->mlm) : NULL;
+    if (!reply) {
         log_error("%s: no reply message received", self->name);
+        zuuid_destroy(&uuid);
+        zpoller_destroy(&poller);
+    }
 
     char* uuid_recv = zmsg_popstr(reply);
-
     if (0 != strcmp(zuuid_str_canonical(uuid), uuid_recv)) {
         log_debug("%s:\tGPIO zuuid doesn't match 1", self->name);
-        zmsg_destroy(&reply);
         zstr_free(&uuid_recv);
+        zmsg_destroy(&reply);
+        zuuid_destroy(&uuid);
+        zpoller_destroy(&poller);
+        return;
     }
+    zstr_free(&uuid_recv);
 
-    if (streq(zmsg_popstr(reply), "ERROR")) {
+    zuuid_destroy(&uuid);
+
+    char* status = zmsg_popstr(reply);
+    if (streq(status, "ERROR")) {
         char* reason = zmsg_popstr(reply);
         log_error("%s: error message received %s", self->name, reason);
+        zstr_free(&reason);
+        zstr_free(&status);
+        zmsg_destroy(&reply);
+        zpoller_destroy(&poller);
+        return;
     }
+    zstr_free(&status);
 
-    char* asset = NULL;
-    asset       = zmsg_popstr(reply);
+    char* asset = zmsg_popstr(reply);
 
     while (asset) {
         uuid = zuuid_new();
-        msg  = zmsg_new();
+
+        msg = zmsg_new();
         zmsg_addstr(msg, "GET");
         zmsg_addstr(msg, zuuid_str_canonical(uuid));
         zmsg_addstr(msg, asset);
-
         rv = mlm_client_sendto(self->mlm, "asset-agent", "ASSET_DETAIL", NULL, 5000, &msg);
-        if (rv != 0)
-            log_error("%s:\tRequest ASSET_DETAIL failed for %s", self->name, asset);
-
-        log_debug("sending ASSET_DETAIL request");
-        zmsg_t* reply2 = mlm_client_recv(self->mlm);
-
-        if (reply2) {
-            uuid_recv = zmsg_popstr(reply2);
-
-            if (0 != strcmp(zuuid_str_canonical(uuid), uuid_recv)) {
-                log_debug("%s:\tGPIO zuuid doesn't match 2", self->name);
-                zmsg_destroy(&reply2);
-                zstr_free(&uuid_recv);
-                continue;
-            }
-
-            if (fty_proto_is(reply2)) {
-                fty_proto_t* fmessage = fty_proto_decode(&reply2);
-                if (fty_proto_id(fmessage) == FTY_PROTO_ASSET) {
-                    log_debug("%s: Processing sensor %s", self->name, asset);
-                    fty_proto_print(fmessage);
-
-                    fty_sensor_gpio_handle_asset(self, fmessage);
-                }
-                fty_proto_destroy(&fmessage);
-            } else {
-                if (streq(zmsg_popstr(reply2), "ERROR"))
-                    log_debug("%s: error received %s", self->name, zmsg_popstr(reply2));
-            }
-            asset = zmsg_popstr(reply);
-            zmsg_destroy(&reply2);
-            zstr_free(&uuid_recv);
-        }
         zmsg_destroy(&msg);
 
+        if (rv != 0) {
+            log_error("%s:\tRequest ASSET_DETAIL failed for %s", self->name, asset);
+        }
+        else {
+            log_debug("sending ASSET_DETAIL request for %s", asset);
+            zmsg_t* reply2 = (zpoller_wait(poller, 5000)) ? mlm_client_recv(self->mlm) : NULL;
+
+            if (reply2) {
+                uuid_recv = zmsg_popstr(reply2);
+
+                if (0 != strcmp(zuuid_str_canonical(uuid), uuid_recv)) {
+                    log_debug("%s:\tGPIO zuuid doesn't match 2", self->name);
+                }
+                else if (fty_proto_is(reply2)) {
+                    fty_proto_t* fmessage = fty_proto_decode(&reply2);
+                    if (fty_proto_id(fmessage) == FTY_PROTO_ASSET) {
+                        log_debug("%s: Processing sensor %s", self->name, asset);
+                        //fty_proto_print(fmessage);
+
+                        fty_sensor_gpio_handle_asset(self, fmessage);
+                    }
+                    fty_proto_destroy(&fmessage);
+                } else {
+                    status = zmsg_popstr(reply2);
+                    if (streq(status, "ERROR"))
+                        log_debug("%s: received %s", self->name, status);
+                    zstr_free(&status);
+                }
+
+                zstr_free(&uuid_recv);
+            }
+            zmsg_destroy(&reply2);
+        }
+
+        zuuid_destroy(&uuid);
+
+        zstr_free(&asset);
+        asset = zmsg_popstr(reply);
     } // while
+
+    zuuid_destroy(&uuid);
+    zmsg_destroy(&msg);
     zmsg_destroy(&reply);
+    zpoller_destroy(&poller);
 }
 //  --------------------------------------------------------------------------
 //  Create a new fty_sensor_gpio_assets
