@@ -590,11 +590,11 @@ void static s_handle_mailbox(fty_sensor_gpio_server_t* self, zmsg_t* message)
                 char*       gpx_direction    = zmsg_popstr(message);
                 char*       gpx_power_source = zmsg_popstr(message);
                 char*       alarm_severity   = zmsg_popstr(message);
-                std::string alarm_message;
-                char*       alarm_message_part;
+
                 // Process the rest of the message as the alarm message
+                std::string alarm_message;
                 while (zmsg_size(message)) {
-                    alarm_message_part = zmsg_popstr(message);
+                    char* alarm_message_part = zmsg_popstr(message);
                     if (!alarm_message.empty())
                         alarm_message += " ";
                     alarm_message += alarm_message_part;
@@ -861,7 +861,7 @@ int request_capabilities_info(fty_sensor_gpio_server_t* self, const char* type)
         return 1;
     }
 
-    zmsg_t* reply;
+    zmsg_t* reply = NULL;
     if (!self->test_mode) {
         // Request HW_CAP info for <type>
         zmsg_t*  msg  = zmsg_new();
@@ -871,42 +871,55 @@ int request_capabilities_info(fty_sensor_gpio_server_t* self, const char* type)
         zmsg_addstr(msg, type);
 
         int rv = mlm_client_sendto(self->mlm, "fty-info", "info", nullptr, 5000, &msg);
+        zmsg_destroy(&msg);
         if (rv != 0) {
             log_error("%s:\tRequest %s sensors list failed", self->name, type);
-            zmsg_destroy(&msg);
             zuuid_destroy(&uuid);
             return 1;
-        } else
-            log_debug("%s: %s capability request sent successfully", self->name, type);
+        }
+
+        log_debug("%s: %s capability request sent successfully", self->name, type);
 
         reply = my_mlm_client_recv(self->mlm, 5000);
         if (!reply) {
             log_error("%s: no reply message received", self->name);
+            zuuid_destroy(&uuid);
             return 1;
         }
 
         char* uuid_recv = zmsg_popstr(reply);
-
         if (0 != strcmp(zuuid_str_canonical(uuid), uuid_recv)) {
             log_debug("%s: zuuid reply doesn't match request", self->name);
-            zmsg_destroy(&reply);
             zstr_free(&uuid_recv);
+            zuuid_destroy(&uuid);
+            zmsg_destroy(&reply);
             return 1;
         }
+        zstr_free(&uuid_recv);
+        zuuid_destroy(&uuid);
 
-        if (streq(zmsg_popstr(reply), "ERROR")) {
+        char* status = zmsg_popstr(reply);
+        if (streq(status, "ERROR")) {
             char* reason = zmsg_popstr(reply);
-            log_error("%s: error message received %s", self->name, reason);
+            log_error("%s: error message received (%s, reason: %s)", self->name, status, reason);
+            zstr_free(&reason);
+            zstr_free(&status);
+            zmsg_destroy(&reply);
             return 1;
         }
-    } else { // TEST mode
+        zstr_free(&status);
+    }
+    else { // TEST mode
         // Use the forged reply
         if (streq(type, "gpi")) {
-            reply = hw_cap_test_reply_gpi;
+            reply = hw_cap_test_reply_gpi ? zmsg_dup(hw_cap_test_reply_gpi) : NULL;
         } else if (streq(type, "gpo")) {
-            reply = hw_cap_test_reply_gpo;
-        } else {
-            reply = nullptr;
+            reply = hw_cap_test_reply_gpo ? zmsg_dup(hw_cap_test_reply_gpo) : NULL;
+        }
+
+        if (!reply) {
+            log_error("%s: TEST unexpected reply message", self->name);
+            return 1;
         }
     }
 
@@ -932,6 +945,7 @@ int request_capabilities_info(fty_sensor_gpio_server_t* self, const char* type)
 
     if (ivalue == 0) {
         log_debug("%s count is 0, no further processing", type);
+        zmsg_destroy(&reply);
         return 0;
     }
 
@@ -963,6 +977,7 @@ int request_capabilities_info(fty_sensor_gpio_server_t* self, const char* type)
         // convert to int
         int port_num = static_cast<int>(strtol(port_str.c_str(), nullptr, 10));
         zstr_free(&value);
+
         // GPx pin number
         value       = zmsg_popstr(reply);
         int pin_num = static_cast<int>(strtol(value, nullptr, 10));
@@ -971,9 +986,11 @@ int request_capabilities_info(fty_sensor_gpio_server_t* self, const char* type)
         else
             libgpio_add_gpo_mapping(self->gpio_lib, port_num, pin_num);
         zstr_free(&value);
+
         // Pop the next pin name
         value = zmsg_popstr(reply);
     }
+
     zmsg_destroy(&reply);
     return 0;
 }
