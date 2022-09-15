@@ -10,7 +10,7 @@
 extern zmsg_t* hw_cap_test_reply_gpi;
 extern zmsg_t* hw_cap_test_reply_gpo;
 
-void libgpio_test()
+static void libgpio_test()
 {
     const char* SELFTEST_DIR_RW = ".";
 
@@ -79,6 +79,9 @@ TEST_CASE("sensor gpio server test")
     //  @selftest
     static const char* endpoint = "inproc://fty_sensor_gpio_server_test";
 
+    hw_cap_test_reply_gpi = NULL;
+    hw_cap_test_reply_gpo = NULL;
+
     // Note: here we test the creation of a template (GPIO_TEMPLATE_ADD)
     // and then the fact that GPIO_MANIFEST request just return this newly
     // created template!
@@ -93,6 +96,9 @@ TEST_CASE("sensor gpio server test")
     // Forge a HW_CAP reply message
     // msg-correlation-id'/OK/'type'/'count'/'base_address'/'offset'/'mapping1'/'mapping_val1'/'mapping2'/'mapping_val2'/
     // ...
+    zmsg_destroy(&hw_cap_test_reply_gpi);
+    zmsg_destroy(&hw_cap_test_reply_gpo);
+
     hw_cap_test_reply_gpi = zmsg_new();
     hw_cap_test_reply_gpo = zmsg_new();
     // zuuid_t can be omitted, since it's already been pop'ed
@@ -122,6 +128,7 @@ TEST_CASE("sensor gpio server test")
     zstr_sendx(self, "PRODUCER", FTY_PROTO_STREAM_METRICS_SENSOR, nullptr);
     zstr_sendx(self, "TEMPLATE_DIR", template_dir.c_str(), nullptr);
     zstr_sendx(self, "HW_CAP", nullptr);
+
     mlm_client_t* mb_client = mlm_client_new();
     mlm_client_connect(mb_client, endpoint, 1000, "fty_sensor_gpio_client");
 
@@ -396,13 +403,17 @@ TEST_CASE("sensor gpio server test")
     // Test #7: Disable all GPI/GPO (as on OVA),
     // Create a sensor and verify that it fails
     {
+        zmsg_destroy(&hw_cap_test_reply_gpi);
+        zmsg_destroy(&hw_cap_test_reply_gpo);
+
         // Forge the HW_CAP messages
         hw_cap_test_reply_gpi = zmsg_new();
-        hw_cap_test_reply_gpo = zmsg_new();
         zmsg_addstr(hw_cap_test_reply_gpi, "gpi");
         zmsg_addstr(hw_cap_test_reply_gpi, "0");
+        hw_cap_test_reply_gpo = zmsg_new();
         zmsg_addstr(hw_cap_test_reply_gpo, "gpo");
         zmsg_addstr(hw_cap_test_reply_gpo, "0");
+
         // Update our -server
         zstr_sendx(self, "HW_CAP", nullptr);
 
@@ -433,6 +444,7 @@ TEST_CASE("sensor gpio server test")
     mlm_client_destroy(&mb_client);
     zactor_destroy(&self);
     zactor_destroy(&server);
+
     //  @end
     printf("OK\n");
 }
